@@ -1,0 +1,93 @@
+{
+  "name": "@hashgraphonline/standards-agent-plugin",
+  "version": "0.0.2",
+  "type": "module",
+  "main": "./dist/cjs/index.cjs",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "browser": {
+        "import": "./dist/esm/index.js",
+        "require": "./dist/umd/standards-agent-plugin.umd.js"
+      },
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:integration": "vitest run tests/integration",
+    "clean": "rimraf dist",
+    "build:es": "BUILD_FORMAT=es vite build",
+    "build:cjs": "BUILD_FORMAT=cjs vite build",
+    "build:umd": "BUILD_FORMAT=umd vite build",
+    "build": "pnpm run clean && pnpm run build:es && pnpm run build:cjs",
+    "prepublishOnly": "pnpm run build",
+    "release": "pnpm publish --access public",
+    "release:canary": "pnpm run prepublishOnly && pnpm publish --tag canary --access public",
+    "version:canary": "pnpm version prerelease --preid canary --no-git-tag-version",
+    "publish:canary": "pnpm run version:canary && pnpm run release:canary",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc --noEmit",
+    "demo": "tsx examples/interactive-demo.ts"
+  },
+  "keywords": [
+    "hedera",
+    "agent",
+    "plugin",
+    "openconvai",
+    "hcs10"
+  ],
+  "author": "Hashgraph Online",
+  "license": "Apache-2.0",
+  "description": "Standards agent plugin for OpenConvAI functionality with HCS-10 tools",
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@typescript-eslint/eslint-plugin": "^8.30.1",
+    "@typescript-eslint/parser": "^8.30.1",
+    "dotenv": "^17.0.1",
+    "eslint": "^8",
+    "eslint-config-next": "14.1.0",
+    "eslint-plugin-sonarjs": "^3.0.2",
+    "rimraf": "^6.0.1",
+    "rollup-plugin-polyfill-node": "^0.13.0",
+    "terser": "^5.39.2",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vite-plugin-dts": "^3.9.1",
+    "vite-plugin-node-polyfills": "^0.23.0",
+    "vite-plugin-string-replace": "^1.1.3",
+    "vitest": "^3.0.7"
+  },
+  "dependencies": {
+    "@hashgraphonline/standards-sdk": "^0.0.148",
+    "@hashgraphonline/standards-agent-kit": "0.2.1",
+    "@langchain/core": "^0.3.55",
+    "hedera-agent-kit": "^2.0.3",
+    "@hashgraph/sdk": "^2.67.0",
+    "zod": "^3.25.28"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hashgraph-online/standards-agent-plugin.git"
+  },
+  "directories": {
+    "test": "tests"
+  },
+  "bugs": {
+    "url": "https://github.com/hashgraph-online/standards-agent-plugin/issues"
+  },
+  "homepage": "https://github.com/hashgraph-online/standards-agent-plugin#readme",
+  "packageManager": "pnpm@10.11.1+sha512.e519b9f7639869dc8d5c3c5dfef73b3f091094b0a006d7317353c72b124e80e1afd429732e28705ad6bfa1ee879c1fce46c128ccebd3192101f43dd67c667912"
+}

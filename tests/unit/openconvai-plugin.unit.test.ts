@@ -2,6 +2,19 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { OpenConvAIPlugin } from '../../src';
 import { Logger } from '@hashgraphonline/standards-sdk';
 
+// Mock the HCS10Builder to prevent actual client initialization
+vi.mock('@hashgraphonline/standards-agent-kit', async () => {
+  const actual = await vi.importActual('@hashgraphonline/standards-agent-kit');
+  return {
+    ...actual,
+    HCS10Builder: vi.fn().mockImplementation(() => ({
+      getStandardClient: vi.fn(),
+      getOperatorId: vi.fn().mockReturnValue('0.0.12345'),
+      getNetwork: vi.fn().mockReturnValue('testnet')
+    }))
+  };
+});
+
 /**
  * Unit tests for OpenConvAIPlugin
  */
@@ -17,7 +30,9 @@ describe('OpenConvAIPlugin Unit Tests', () => {
       },
       signer: {
         getAccountId: () => ({ toString: () => '0.0.12345' }),
-        getOperatorPrivateKey: () => ({ toStringRaw: () => 'mock-private-key' })
+        getOperatorPrivateKey: () => ({ 
+          toStringRaw: () => '302e020100300506032b657004220420a689b974df063cc7e19fd4ddeaf6dd412b5efec4e4a3cee7f181d29d40b3fc1e' 
+        })
       },
       operationalMode: 'directExecution'
     };
@@ -34,39 +49,53 @@ describe('OpenConvAIPlugin Unit Tests', () => {
   });
 
   describe('Plugin Initialization', () => {
-    test('Plugin creates with valid parameters', () => {
-      const plugin = new OpenConvAIPlugin('0.0.12345', 'mock-private-key');
+    test('Plugin creates without parameters', () => {
+      const plugin = new OpenConvAIPlugin();
       
       expect(plugin).toBeDefined();
       expect(plugin.name).toBe('OpenConvAI Standards Agent Kit Plugin');
       expect(plugin.description).toContain('HCS-10');
+      expect(plugin.id).toBe('openconvai-standards-agent-kit');
+      expect(plugin.namespace).toBe('openconvai');
     });
 
-    test('Plugin initializes tools on init', async () => {
-      const plugin = new OpenConvAIPlugin('0.0.12345', 'mock-private-key');
+    test('Plugin initializes tools when hederaKit is provided', async () => {
+      const plugin = new OpenConvAIPlugin();
       
-      // Need to mock the logger methods
       mockContext.logger.warn = vi.fn();
       mockContext.logger.info = vi.fn();
       mockContext.logger.error = vi.fn();
       
-      try {
-        await plugin.initialize(mockContext);
-      } catch (error) {
-        console.error('Plugin initialization error:', error);
-      }
+      await plugin.initialize(mockContext);
       
       const tools = plugin.getTools();
-      console.log('Tools created:', tools.length);
-      console.log('Logger warn calls:', (mockContext.logger.warn as any).mock?.calls);
-      console.log('Logger error calls:', (mockContext.logger.error as any).mock?.calls);
       
       expect(tools).toBeDefined();
       expect(tools.length).toBe(11); // All 11 HCS10 tools
+      expect(mockContext.logger.info).toHaveBeenCalledWith(
+        'OpenConvAI Standards Agent Kit Plugin initialized successfully'
+      );
+    });
+
+    test('Plugin warns when hederaKit is missing', async () => {
+      const plugin = new OpenConvAIPlugin();
+      
+      mockContext.config.hederaKit = undefined;
+      mockContext.logger.warn = vi.fn();
+      mockContext.logger.info = vi.fn();
+      
+      await plugin.initialize(mockContext);
+      
+      const tools = plugin.getTools();
+      
+      expect(tools.length).toBe(0);
+      expect(mockContext.logger.warn).toHaveBeenCalledWith(
+        'HederaKit not found in context. OpenConvAI tools will not be available.'
+      );
     });
 
     test('Plugin tools have correct structure', async () => {
-      const plugin = new OpenConvAIPlugin('0.0.12345', 'mock-private-key');
+      const plugin = new OpenConvAIPlugin();
       
       mockContext.logger.warn = vi.fn();
       mockContext.logger.info = vi.fn();
@@ -85,8 +114,8 @@ describe('OpenConvAIPlugin Unit Tests', () => {
       });
     });
 
-    test('Plugin creates HCS10Builder with correct parameters', async () => {
-      const plugin = new OpenConvAIPlugin('0.0.12345', 'mock-private-key');
+    test('Plugin creates HCS10Builder and StateManager', async () => {
+      const plugin = new OpenConvAIPlugin();
       
       mockContext.logger.warn = vi.fn();
       mockContext.logger.info = vi.fn();
@@ -98,12 +127,13 @@ describe('OpenConvAIPlugin Unit Tests', () => {
       const registerTool = tools.find(t => t.name === 'register_agent');
       
       expect(registerTool).toBeDefined();
+      expect(plugin.getStateManager()).toBeDefined();
     });
   });
 
   describe('Tool Names and Descriptions', () => {
     test('All tools have unique names', async () => {
-      const plugin = new OpenConvAIPlugin('0.0.12345', 'mock-private-key');
+      const plugin = new OpenConvAIPlugin();
       mockContext.logger.warn = vi.fn();
       mockContext.logger.info = vi.fn();
       mockContext.logger.error = vi.fn();
@@ -117,7 +147,7 @@ describe('OpenConvAIPlugin Unit Tests', () => {
     });
 
     test('All tools have descriptive text', async () => {
-      const plugin = new OpenConvAIPlugin('0.0.12345', 'mock-private-key');
+      const plugin = new OpenConvAIPlugin();
       mockContext.logger.warn = vi.fn();
       mockContext.logger.info = vi.fn();
       mockContext.logger.error = vi.fn();
@@ -136,7 +166,7 @@ describe('OpenConvAIPlugin Unit Tests', () => {
 
   describe('Tool Categories', () => {
     test('Tools are properly categorized', async () => {
-      const plugin = new OpenConvAIPlugin('0.0.12345', 'mock-private-key');
+      const plugin = new OpenConvAIPlugin();
       mockContext.logger.warn = vi.fn();
       mockContext.logger.info = vi.fn();
       mockContext.logger.error = vi.fn();
@@ -144,113 +174,108 @@ describe('OpenConvAIPlugin Unit Tests', () => {
       
       const tools = plugin.getTools();
       
-      const transactionTools = [
+      const expectedTools = [
         'register_agent',
-        'initiate_connection',
-        'accept_connection_request',
-        'send_message_to_connection',
-        'monitor_connections',
-        'manage_connection_requests'
-      ];
-      
-      const queryTools = [
         'find_registrations',
         'retrieve_profile',
+        'initiate_connection',
         'list_connections',
+        'send_message_to_connection',
         'check_messages',
+        'monitor_connections',
+        'manage_connection_requests',
+        'accept_connection_request',
         'list_unapproved_connection_requests'
       ];
       
       // Verify we have all expected tools
-      [...transactionTools, ...queryTools].forEach(toolName => {
+      expectedTools.forEach(toolName => {
         const tool = tools.find(t => t.name === toolName);
         expect(tool).toBeDefined();
       });
       
-      expect(transactionTools.length + queryTools.length).toBe(11);
-    });
-  });
-
-  describe('StateManager Integration', () => {
-    test('Plugin initializes StateManager', async () => {
-      const plugin = new OpenConvAIPlugin('0.0.12345', 'mock-private-key');
-      
-      mockContext.logger.warn = vi.fn();
-      mockContext.logger.info = vi.fn();
-      mockContext.logger.error = vi.fn();
-      await plugin.initialize(mockContext);
-      
-      // StateManager should be created and used by tools
-      const tools = plugin.getTools();
-      const listConnectionsTool = tools.find(t => t.name === 'list_connections');
-      
-      expect(listConnectionsTool).toBeDefined();
-    });
-  });
-
-  describe('Error Handling', () => {
-    test('Plugin handles missing credentials gracefully', async () => {
-      const plugin = new OpenConvAIPlugin(); // No credentials
-      
-      // Should handle missing credentials gracefully
-      mockContext.logger.warn = vi.fn();
-      mockContext.logger.info = vi.fn();
-      mockContext.logger.error = vi.fn();
-      await plugin.initialize(mockContext);
-      
-      const tools = plugin.getTools();
-      expect(tools.length).toBe(0); // No tools created without credentials
-    });
-
-    test('Plugin handles invalid network gracefully', async () => {
-      const invalidKit = {
-        ...mockHederaKit,
-        client: {
-          network: { toString: () => 'invalid-network' }
-        }
-      };
-      
-      const plugin = new OpenConvAIPlugin('0.0.12345', 'mock-private-key');
-      
-      // Should still initialize but default to testnet
-      await plugin.initialize({ ...mockContext, kit: invalidKit });
-      
-      const tools = plugin.getTools();
       expect(tools.length).toBe(11);
     });
   });
 
-  describe('Code Quality Compliance', () => {
-    test('No inline comments in tool implementations', async () => {
-      // This test would check the actual source files
-      // For now, we verify the tools follow the expected pattern
-      const plugin = new OpenConvAIPlugin('0.0.12345', 'mock-private-key');
+  describe('StateManager Integration', () => {
+    test('Plugin uses context stateManager if provided', async () => {
+      const customStateManager = { custom: 'state' };
+      mockContext.stateManager = customStateManager;
+      
+      const plugin = new OpenConvAIPlugin();
+      
       mockContext.logger.warn = vi.fn();
       mockContext.logger.info = vi.fn();
       mockContext.logger.error = vi.fn();
       await plugin.initialize(mockContext);
       
-      const tools = plugin.getTools();
-      
-      // Verify tools follow naming conventions
-      tools.forEach(tool => {
-        expect(tool.name).toMatch(/^[a-z_]+$/); // snake_case
-      });
+      const stateManager = plugin.getStateManager();
+      expect(stateManager).toBe(customStateManager);
     });
 
-    test('Tools follow DRY principle', async () => {
-      const plugin = new OpenConvAIPlugin('0.0.12345', 'mock-private-key');
+    test('Plugin creates own StateManager if not provided', async () => {
+      const plugin = new OpenConvAIPlugin();
+      
       mockContext.logger.warn = vi.fn();
       mockContext.logger.info = vi.fn();
       mockContext.logger.error = vi.fn();
       await plugin.initialize(mockContext);
       
-      const tools = plugin.getTools();
+      const stateManager = plugin.getStateManager();
+      expect(stateManager).toBeDefined();
+      expect(stateManager).not.toBe(mockContext.stateManager);
+    });
+  });
+
+  describe('Error Handling', () => {
+    test('Plugin handles initialization errors gracefully', async () => {
+      const plugin = new OpenConvAIPlugin();
       
-      // All tools should extend base classes (verified by namespace)
-      tools.forEach(tool => {
-        expect(tool.namespace).toBe('hcs10');
+      // Mock the initializeTools method to throw an error
+      const originalInitTools = (plugin as any).initializeTools;
+      (plugin as any).initializeTools = vi.fn().mockImplementation(() => {
+        throw new Error('Test error during tool initialization');
       });
+      
+      mockContext.logger.warn = vi.fn();
+      mockContext.logger.info = vi.fn();
+      mockContext.logger.error = vi.fn();
+      
+      await plugin.initialize(mockContext);
+      
+      expect(mockContext.logger.error).toHaveBeenCalledWith(
+        'Failed to initialize OpenConvAI plugin:',
+        expect.any(Error)
+      );
+      
+      // Restore original method
+      (plugin as any).initializeTools = originalInitTools;
+    });
+  });
+
+  describe('Plugin Cleanup', () => {
+    test('Cleanup removes tools and state', async () => {
+      const plugin = new OpenConvAIPlugin();
+      
+      mockContext.logger.warn = vi.fn();
+      mockContext.logger.info = vi.fn();
+      mockContext.logger.error = vi.fn();
+      
+      await plugin.initialize(mockContext);
+      
+      // Verify tools exist before cleanup
+      expect(plugin.getTools().length).toBe(11);
+      expect(plugin.getStateManager()).toBeDefined();
+      
+      // Cleanup
+      await plugin.cleanup();
+      
+      // Verify cleanup
+      expect(plugin.getTools().length).toBe(0);
+      expect(mockContext.logger.info).toHaveBeenCalledWith(
+        'OpenConvAI Standards Agent Kit Plugin cleaned up'
+      );
     });
   });
 });

@@ -2,10 +2,17 @@ import {
   ServerSigner,
   HederaConversationalAgent,
   getAllHederaCorePlugins,
+  BasePlugin,
 } from 'hedera-agent-kit';
-import type { AgentOperationalMode, AgentResponse } from 'hedera-agent-kit';
+import type {
+  AgentOperationalMode,
+  AgentResponse,
+  HederaConversationalAgentConfig,
+  MirrorNodeConfig,
+} from 'hedera-agent-kit';
 import { OpenConvAIPlugin } from './plugins/openconvai/OpenConvAIPlugin';
 import { OpenConvaiState } from '@hashgraphonline/standards-agent-kit';
+import type { IStateManager } from '@hashgraphonline/standards-agent-kit';
 import {
   Logger,
   HederaMirrorNode,
@@ -22,18 +29,34 @@ export interface StandardsKitOptions {
   verbose?: boolean;
   operationalMode?: AgentOperationalMode;
   userAccountId?: string;
+  customSystemMessagePreamble?: string;
+  customSystemMessagePostamble?: string;
+  additionalPlugins?: BasePlugin[];
+  stateManager?: IStateManager;
+  scheduleUserTransactionsInBytesMode?: boolean;
+  mirrorNodeConfig?: MirrorNodeConfig;
+  disableLogging?: boolean;
 }
 
+/**
+ * The StandardsKit class is an optional wrapper around the HederaConversationalAgent class,
+ * which includes the OpenConvAIPlugin and the OpenConvaiState by default.
+ * If you want to use a different plugin or state manager, you can pass them in the options.
+ * This class is not required and the plugin can be used directly with the HederaConversationalAgent class.
+ *
+ * @param options - The options for the StandardsKit.
+ * @returns A new instance of the StandardsKit class.
+ */
 export class StandardsKit {
-  private conversationalAgent?: HederaConversationalAgent;
-  private plugin: OpenConvAIPlugin;
-  private stateManager: OpenConvaiState;
+  public conversationalAgent?: HederaConversationalAgent;
+  public plugin: OpenConvAIPlugin;
+  public stateManager: IStateManager;
   private options: StandardsKitOptions;
   private logger: Logger;
 
   constructor(options: StandardsKitOptions) {
     this.options = options;
-    this.stateManager = new OpenConvaiState();
+    this.stateManager = options.stateManager || new OpenConvaiState();
     this.plugin = new OpenConvAIPlugin();
     this.logger = new Logger({ module: 'StandardsKit' });
   }
@@ -48,6 +71,12 @@ export class StandardsKit {
       verbose = false,
       operationalMode = 'autonomous',
       userAccountId,
+      customSystemMessagePreamble,
+      customSystemMessagePostamble,
+      additionalPlugins = [],
+      scheduleUserTransactionsInBytesMode,
+      mirrorNodeConfig,
+      disableLogging,
     } = this.options;
 
     if (!accountId || !privateKey) {
@@ -72,9 +101,24 @@ export class StandardsKit {
         network
       );
 
-      this.conversationalAgent = new HederaConversationalAgent(serverSigner, {
+      const defaultSystemMessage = `You are a helpful assistant managing Hedera HCS-10 connections and messages.
+You have access to tools for registering agents, finding registered agents, initiating connections, listing active connections, sending messages over connections, and checking for new messages.
+
+*** IMPORTANT CONTEXT ***
+You are currently operating as agent: ${accountId}
+When users ask about "my profile", "my account", "my connections", etc., use this account ID: ${accountId}
+
+Remember the connection numbers when listing connections, as users might refer to them.`;
+
+      const allPlugins = [
+        this.plugin,
+        ...additionalPlugins,
+        ...getAllHederaCorePlugins(),
+      ];
+
+      const agentConfig: HederaConversationalAgentConfig = {
         pluginConfig: {
-          plugins: [this.plugin, ...getAllHederaCorePlugins()],
+          plugins: allPlugins,
           appConfig: {
             stateManager: this.stateManager,
           },
@@ -84,28 +128,22 @@ export class StandardsKit {
         verbose,
         operationalMode,
         userAccountId,
-        customSystemMessagePreamble: `You are a helpful assistant managing Hedera HCS-10 connections and messages.
-You have access to tools for registering agents, finding registered agents, initiating connections, listing active connections, sending messages over connections, and checking for new messages.
+        customSystemMessagePreamble:
+          customSystemMessagePreamble || defaultSystemMessage,
+        ...(customSystemMessagePostamble !== undefined && {
+          customSystemMessagePostamble,
+        }),
+        ...(scheduleUserTransactionsInBytesMode !== undefined && {
+          scheduleUserTransactionsInBytesMode,
+        }),
+        ...(mirrorNodeConfig !== undefined && { mirrorNodeConfig }),
+        ...(disableLogging !== undefined && { disableLogging }),
+      };
 
-*** IMPORTANT CONTEXT ***
-You are currently operating as agent: ${accountId}
-When users ask about "my profile", "my account", "my connections", etc., use this account ID: ${accountId}
-
-*** IMPORTANT TOOL SELECTION RULES ***
-- To REGISTER a new agent, use 'register_agent'.
-- To FIND existing registered agents in the registry, use 'find_registrations'. You can filter by accountId or tags.
-- To START a NEW connection TO a specific target agent (using their account ID), ALWAYS use the 'initiate_connection' tool.
-- To LISTEN for INCOMING connection requests FROM other agents, use the 'monitor_connections' tool (it takes NO arguments).
-- To SEND a message to a specific agent, use 'send_message_to_connection' tool.
-- To ACCEPT incoming connection requests, use the 'accept_connection_request' tool.
-- To MANAGE and VIEW pending connection requests, use the 'manage_connection_requests' tool.
-- To CHECK FOR *NEW* messages since the last check, use the 'check_messages' tool.
-- To GET THE *LATEST* MESSAGE(S) in a conversation, even if you might have seen them before, use the 'check_messages' tool and set the parameter 'fetchLatest: true'. You can optionally specify 'lastMessagesCount' to get more than one latest message (default is 1).
-- To RETRIEVE a profile, use the 'retrieve_profile' tool. When users ask for "my profile", use the current account ID: ${accountId}
-- Do NOT confuse these tools.
-
-Remember the connection numbers when listing connections, as users might refer to them.`,
-      });
+      this.conversationalAgent = new HederaConversationalAgent(
+        serverSigner,
+        agentConfig
+      );
 
       await this.conversationalAgent.initialize();
     } catch (error) {
@@ -118,7 +156,7 @@ Remember the connection numbers when listing connections, as users might refer t
     return this.plugin;
   }
 
-  getStateManager(): OpenConvaiState {
+  getStateManager(): IStateManager {
     return this.stateManager;
   }
 

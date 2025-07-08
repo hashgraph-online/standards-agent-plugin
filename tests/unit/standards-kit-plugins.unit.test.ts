@@ -11,7 +11,7 @@ vi.mock('hedera-agent-kit', async () => {
     ServerSigner: vi.fn().mockImplementation(() => ({
       getAccountId: () => ({ toString: () => '0.0.12345' }),
     })),
-    HederaConversationalAgent: vi.fn().mockImplementation(function(signer, config) {
+    HederaConversationalAgent: vi.fn().mockImplementation(function(this: any, signer: any, config: any) {
       this.config = config;
       this.initialize = vi.fn().mockResolvedValue(undefined);
       this.processMessage = vi.fn().mockResolvedValue({
@@ -74,17 +74,18 @@ describe('StandardsKit Plugin Support', () => {
     id = 'mock-plugin';
     name = 'Mock Plugin';
     description = 'A mock plugin for testing';
+    author = 'Mock Author';
     version = '1.0.0';
     namespace = 'mock';
 
     initialized = false;
 
-    async initialize(context: GenericPluginContext): Promise<void> {
+    override async initialize(context: GenericPluginContext): Promise<void> {
       await super.initialize(context);
       this.initialized = true;
     }
 
-    getTools() {
+    getTools(): [] {
       return [];
     }
   }

@@ -4,7 +4,7 @@ import tsParser from '@typescript-eslint/parser';
 
 const eslintConfig = [
   {
-    ignores: ['dist/**', 'node_modules/**', '*.d.ts', '**/*.d.ts'],
+    ignores: ['dist/**', 'node_modules/**', '*.d.ts', '**/*.d.ts', '.yalc/**', 'yalc.lock', 'examples/**', 'vite.config.ts'],
   },
   {
     files: ['**/*.{ts,tsx}'],

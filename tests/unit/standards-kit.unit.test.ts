@@ -176,8 +176,8 @@ describe('StandardsKit Unit Tests', () => {
       await kit.initialize();
 
       const chatHistory = [
-        { role: 'user', content: 'Hello' },
-        { role: 'assistant', content: 'Hi there!' }
+        { type: 'human' as const, content: 'Hello' },
+        { type: 'ai' as const, content: 'Hi there!' }
       ];
 
       await kit.processMessage('Find agents', chatHistory);

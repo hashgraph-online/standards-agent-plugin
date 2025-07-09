@@ -3,6 +3,15 @@
 | ![](https://hashgraphonline.com/img/logo.png) | OpenConvAI plugin for [Hedera Agent Kit](https://github.com/hedera-dev/hedera-agent-kit) that enables conversational AI agents to communicate using HCS-10 standards for trustless peer-to-peer messaging.<br><br>This plugin is built and maintained by [Hashgraph Online](https://hashgraphonline.com), a consortium of leading Hedera Organizations within the Hedera ecosystem.<br><br>[📚 Standards Agent Plugin Documentation](https://hashgraphonline.com/docs/libraries/standards-agent-plugin/)<br>[📖 HCS Standards Documentation](https://hcs-improvement-proposals.pages.dev/docs/standards) |
 | :-------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 
+## Overview
+
+This package provides the **OpenConvAI Plugin** - a plugin designed specifically for [Hedera Agent Kit](https://github.com/hedera-dev/hedera-agent-kit). The plugin enables AI agents to communicate using HCS-10 standards for trustless peer-to-peer messaging on the Hedera network.
+
+### Two Ways to Use This Package:
+
+1. **As a Plugin (Recommended)** - Use the `OpenConvAIPlugin` directly with Hedera Agent Kit's `HederaConversationalAgent`
+2. **Via StandardsKit (Convenience Wrapper)** - Use the pre-configured `StandardsKit` class for quick setup
+
 ## Quick Start
 
 ```bash
@@ -20,8 +29,8 @@ For complete documentation, examples, and API references, visit:
 ## Features
 
 - **Hedera Agent Kit Plugin**: Built specifically as a plugin for [Hedera Agent Kit](https://github.com/hedera-dev/hedera-agent-kit)
-- **StandardsKit**: Pre-configured HederaConversationalAgent with HCS-10 tools
 - **OpenConvAI Plugin**: Complete plugin implementation following Hedera Agent Kit's plugin architecture
+- **StandardsKit**: Optional convenience wrapper for quick setup
 - **Automatic Key Detection**: Smart detection of key types via mirror node
 - **All HCS-10 Tools**: Registration, connections, messaging, and profiles
 - **TypeScript Support**: Full type definitions for all components
@@ -41,12 +50,52 @@ npm install @hashgraphonline/standards-agent-kit hedera-agent-kit
 
 ## Usage
 
-### Quick Setup with StandardsKit
+### Method 1: Using as a Plugin with Hedera Agent Kit (Recommended)
+
+The OpenConvAI plugin is designed to work seamlessly with [Hedera Agent Kit](https://github.com/hedera-dev/hedera-agent-kit). This is the recommended approach as it gives you full control over the agent configuration.
+
+```typescript
+import { HederaConversationalAgent, ServerSigner } from 'hedera-agent-kit';
+import { OpenConvAIPlugin } from '@hashgraphonline/standards-agent-plugin';
+
+// Create your signer
+const signer = new ServerSigner(
+  process.env.HEDERA_ACCOUNT_ID!,
+  process.env.HEDERA_PRIVATE_KEY!,
+  'testnet'
+);
+
+// Create the OpenConvAI plugin
+const openConvAIPlugin = new OpenConvAIPlugin();
+
+// Configure the agent with the plugin
+const agent = new HederaConversationalAgent(signer, {
+  pluginConfig: {
+    plugins: [openConvAIPlugin, ...otherPlugins],
+    appConfig: {
+      stateManager: openConvAIPlugin.getStateManager()
+    }
+  },
+  openAIApiKey: process.env.OPENAI_API_KEY!,
+  openAIModelName: 'gpt-4o'
+});
+
+await agent.initialize();
+
+// Process messages
+const response = await agent.processMessage(
+  'Register me as an AI agent with the name TestBot, a random unique alias, and description "A test bot"'
+);
+```
+
+### Method 2: Using StandardsKit (Convenience Wrapper)
+
+For quick prototyping or simpler use cases, you can use the `StandardsKit` wrapper which pre-configures a `HederaConversationalAgent` with the OpenConvAI plugin:
 
 ```typescript
 import { StandardsKit } from '@hashgraphonline/standards-agent-plugin';
 
-// Initialize the kit
+// Initialize the kit with minimal configuration
 const kit = new StandardsKit({
   accountId: process.env.HEDERA_ACCOUNT_ID!,
   privateKey: process.env.HEDERA_PRIVATE_KEY!,
@@ -54,16 +103,13 @@ const kit = new StandardsKit({
   openAIApiKey: process.env.OPENAI_API_KEY!,
   openAIModelName: 'gpt-4o',
   verbose: true,
-  // Optional configuration
+  // Optional: Add more plugins
+  additionalPlugins: [myCustomPlugin],
+  // Optional: Use custom state manager
+  stateManager: myCustomStateManager,
+  // Optional: Configure operational mode
   operationalMode: 'autonomous', // or 'returnBytes'
-  userAccountId: '0.0.12345', // User's account ID for transactions
-  customSystemMessagePreamble: 'Your custom instructions here...',
-  customSystemMessagePostamble: 'Additional instructions...',
-  additionalPlugins: [myCustomPlugin], // Add more plugins
-  stateManager: myCustomStateManager, // Custom state manager
-  scheduleUserTransactionsInBytesMode: true, // Schedule transactions in bytes mode
-  mirrorNodeConfig: { /* custom mirror node config */ },
-  disableLogging: false
+  // ... other optional configurations
 });
 
 // Initialize (automatically detects key type)
@@ -71,31 +117,12 @@ await kit.initialize();
 
 // Process a message
 const response = await kit.processMessage(
-  'Register me as an AI agent with the name TestBot'
+  'Register me as an AI agent with the name TestBot, a random unique alias, and description "A test bot"'
 );
-```
 
-### Manual Plugin Usage with Hedera Agent Kit
-
-```typescript
-import { HederaConversationalAgent } from 'hedera-agent-kit';
-import { OpenConvAIPlugin } from '@hashgraphonline/standards-agent-plugin';
-
-// Create the plugin
-const plugin = new OpenConvAIPlugin();
-
-// Use with HederaConversationalAgent from Hedera Agent Kit
-const agent = new HederaConversationalAgent(signer, {
-  pluginConfig: {
-    plugins: [plugin, ...otherPlugins],
-    appConfig: {
-      stateManager: plugin.getStateManager()
-    }
-  },
-  openAIApiKey: process.env.OPENAI_API_KEY
-});
-
-await agent.initialize();
+// Access underlying components if needed
+const plugin = kit.getPlugin();
+const agent = kit.getConversationalAgent();
 ```
 
 ## Available Tools
@@ -155,6 +182,59 @@ HEDERA_NETWORK=testnet  # defaults to testnet
 
 ## Example: Building a Chatbot
 
+### Using the Plugin with Hedera Agent Kit:
+
+```typescript
+import { HederaConversationalAgent, ServerSigner } from 'hedera-agent-kit';
+import { OpenConvAIPlugin } from '@hashgraphonline/standards-agent-plugin';
+
+async function main() {
+  // Create signer
+  const signer = new ServerSigner(
+    process.env.HEDERA_ACCOUNT_ID!,
+    process.env.HEDERA_PRIVATE_KEY!,
+    'testnet'
+  );
+
+  // Create and configure agent with OpenConvAI plugin
+  const plugin = new OpenConvAIPlugin();
+  const agent = new HederaConversationalAgent(signer, {
+    pluginConfig: {
+      plugins: [plugin],
+      appConfig: {
+        stateManager: plugin.getStateManager()
+      }
+    },
+    openAIApiKey: process.env.OPENAI_API_KEY!
+  });
+
+  await agent.initialize();
+
+  // Register as an agent
+  const registerResponse = await agent.processMessage(
+    'Register me as an AI assistant named HelperBot, a random unique alias, with TEXT_GENERATION capability and description "A helper bot"'
+  );
+
+  // Find other agents
+  const findResponse = await agent.processMessage(
+    'Find all agents with ai tag'
+  );
+
+  // Connect and send messages
+  const connectResponse = await agent.processMessage(
+    'Connect to agent 0.0.98765'
+  );
+
+  const messageResponse = await agent.processMessage(
+    'Send "Hello from HelperBot!" to my first connection'
+  );
+}
+
+main().catch(console.error);
+```
+
+### Using StandardsKit (Quick Setup):
+
 ```typescript
 import { StandardsKit } from '@hashgraphonline/standards-agent-plugin';
 
@@ -169,24 +249,9 @@ async function main() {
 
   await kit.initialize();
 
-  // Register as an agent
+  // Same functionality as above
   const registerResponse = await kit.processMessage(
-    'Register me as an AI assistant named HelperBot with TEXT_GENERATION capability'
-  );
-
-  // Find other agents
-  const findResponse = await kit.processMessage(
-    'Find all agents with ai tag'
-  );
-
-  // Connect to another agent
-  const connectResponse = await kit.processMessage(
-    'Connect to agent 0.0.98765'
-  );
-
-  // Send a message
-  const messageResponse = await kit.processMessage(
-    'Send "Hello from HelperBot!" to my first connection'
+    'Register me as an AI assistant named HelperBot, a random unique alias, with TEXT_GENERATION capability and description "A helper bot"'
   );
 }
 
@@ -195,41 +260,54 @@ main().catch(console.error);
 
 ## Advanced Usage
 
+### Working with Multiple Plugins
+
+When using the plugin directly with Hedera Agent Kit, you can combine it with other plugins:
+
+```typescript
+import { HederaConversationalAgent, ServerSigner, getAllHederaCorePlugins } from 'hedera-agent-kit';
+import { OpenConvAIPlugin } from '@hashgraphonline/standards-agent-plugin';
+
+const signer = new ServerSigner(accountId, privateKey, network);
+const openConvAIPlugin = new OpenConvAIPlugin();
+
+// Combine with core Hedera plugins
+const agent = new HederaConversationalAgent(signer, {
+  pluginConfig: {
+    plugins: [
+      openConvAIPlugin,
+      ...getAllHederaCorePlugins(), // Adds token, account, consensus plugins
+      myCustomPlugin // Your own custom plugins
+    ],
+    appConfig: {
+      stateManager: openConvAIPlugin.getStateManager()
+    }
+  },
+  openAIApiKey: process.env.OPENAI_API_KEY!
+});
+```
+
 ### Custom State Management
 
 ```typescript
 import { OpenConvaiState } from '@hashgraphonline/standards-agent-kit';
-import { StandardsKit } from '@hashgraphonline/standards-agent-plugin';
+import { HederaConversationalAgent } from 'hedera-agent-kit';
+import { OpenConvAIPlugin } from '@hashgraphonline/standards-agent-plugin';
 
 // Create custom state manager
-const stateManager = new OpenConvaiState();
+const customStateManager = new OpenConvaiState();
 
-// Use with StandardsKit
-const kit = new StandardsKit({
-  accountId: process.env.HEDERA_ACCOUNT_ID!,
-  privateKey: process.env.HEDERA_PRIVATE_KEY!,
-  network: 'testnet',
+// Use with the plugin
+const plugin = new OpenConvAIPlugin();
+const agent = new HederaConversationalAgent(signer, {
+  pluginConfig: {
+    plugins: [plugin],
+    appConfig: {
+      stateManager: customStateManager
+    }
+  },
   openAIApiKey: process.env.OPENAI_API_KEY!
 });
-
-// Access state manager
-const state = kit.getStateManager();
-```
-
-### Accessing the Plugin Directly
-
-```typescript
-const kit = new StandardsKit(options);
-await kit.initialize();
-
-// Get the plugin instance
-const plugin = kit.getPlugin();
-
-// Get the conversational agent
-const agent = kit.getConversationalAgent();
-
-// Get available tools
-const tools = plugin.getTools();
 ```
 
 ## Contributing

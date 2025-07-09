@@ -1,6 +1,6 @@
 {
   "name": "@hashgraphonline/standards-agent-plugin",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "type": "module",
   "main": "./dist/cjs/index.cjs",
   "module": "./dist/esm/index.js",
@@ -71,8 +71,8 @@
     "vitest": "^3.0.7"
   },
   "dependencies": {
-    "@hashgraphonline/standards-sdk": "^0.0.148",
-    "@hashgraphonline/standards-agent-kit": "0.2.1",
+    "@hashgraphonline/standards-sdk": "^0.0.155",
+    "@hashgraphonline/standards-agent-kit": "0.2.101",
     "@langchain/core": "^0.3.55",
     "hedera-agent-kit": "^2.0.3",
     "@hashgraph/sdk": "^2.67.0",
